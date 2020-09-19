@@ -22,7 +22,7 @@
 #include "BLEBeacon.h"
 #include "esp_sleep.h"
 
-#define GPIO_DEEP_SLEEP_DURATION     10  // sleep x seconds and then wake up
+#define GPIO_DEEP_SLEEP_DURATION     1  // sleep x seconds and then wake up
 RTC_DATA_ATTR static time_t last;        // remember last boot in RTC Memory
 RTC_DATA_ATTR static uint32_t bootcount; // remember number of boots in RTC Memory
 
@@ -42,7 +42,7 @@ uint8_t temprature_sens_read();
 BLEAdvertising *pAdvertising;
 struct timeval now;
 
-#define BEACON_UUID           "8ec76ea3-6668-48da-9866-75be8bc86f4d" // UUID 1 128-Bit (may use linux tool uuidgen or random numbers via https://www.uuidgenerator.net/)
+#define BEACON_UUID "0369c64b-153c-49cd-a5f3-24c1955853a0" // UUID 1 128-Bit (may use linux tool uuidgen or random numbers via https://www.uuidgenerator.net/)
 
 void setBeacon() {
 
