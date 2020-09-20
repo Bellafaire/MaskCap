@@ -18,8 +18,17 @@ int scanTime = 1; //In seconds
 BLEScan* pBLEScan;
 boolean detected = false;
 
-Stepper rightStepper(600, 32, 33, 25, 26);
-Stepper leftStepper(600, 19, 18, 17, 16);
+
+// Number of steps per output rotation
+const int stepsPerRevolution = 600;
+
+// Create Instance of Stepper library
+//Stepper myStepper(stepsPerRevolution, 5, 4, 3, 2);
+//Stepper rightStepper(stepsPerRevolution, 32, 33, 25, 26);
+Stepper rightStepper(stepsPerRevolution, 32, 33, 25, 26);
+//Stepper leftStepper(stepsPerRevolution, 19, 18, 17, 16);
+Stepper leftStepper(stepsPerRevolution, 22, 23, 21, 19);
+
 
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     /**
@@ -43,8 +52,8 @@ void setup() {
   Serial.println("Scanning...");
   pinMode(4, OUTPUT);
   digitalWrite(4, LOW);
-  leftStepper.setSpeed(10);
-  rightStepper.setSpeed(10);
+  rightStepper.setSpeed(25);
+  leftStepper.setSpeed(25);
   BLEDevice::init("");
   pBLEScan = BLEDevice::getScan(); //create new scan
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
@@ -68,36 +77,63 @@ void setup() {
   Serial.println("Characteristic defined! Now you can read it in your phone!");
 }
 
-void extend() {
-  leftStepper.step(600);
-  rightStepper.step(-600);
-  Serial.println("Extending");
-  retracted = false;
+void raiseLeft(void * pvParameters) {
+  leftStepper.setSpeed(20);
+  leftStepper.step(-1500);
+  vTaskDelete(NULL);
 }
-void retract() {
-  leftStepper.step(-700);
-  rightStepper.step(700);
-  Serial.println("Retracting");
-  retracted = true;
+
+void lowerLeft(void * pvParameters) {
+  leftStepper.setSpeed(35);
+  leftStepper.step(1000);
+  vTaskDelete(NULL);
+}
+void raiseRight(void * pvParameters) {
+  rightStepper.setSpeed(20);
+  rightStepper.step(-1000);
+  vTaskDelete(NULL);
+}
+
+void lowerRight(void * pvParameters) {
+  rightStepper.setSpeed(35);
+  rightStepper.step(1500);
+  vTaskDelete(NULL);
+}
+
+void raiseMask() {
+
+  TaskHandle_t xRaiseLeft = NULL;
+  TaskHandle_t xRaiseRight = NULL;
+  xTaskCreatePinnedToCore( raiseRight, "raise_right", 4096, (void *) 1 , tskIDLE_PRIORITY, &xRaiseRight, 0 );
+  xTaskCreatePinnedToCore( raiseLeft, "raise_left", 4096, (void *) 1 , tskIDLE_PRIORITY, &xRaiseLeft, 0 );
+
+  delay(15000);
+}
+
+void lowerMask() {
+  TaskHandle_t xLowerLeft = NULL;
+  TaskHandle_t xLowerRight = NULL;
+  xTaskCreatePinnedToCore( lowerRight, "raise_right", 4096, (void *) 1 , tskIDLE_PRIORITY, &xLowerRight, 0 );
+  xTaskCreatePinnedToCore( lowerLeft, "raise_left", 4096, (void *) 1 , tskIDLE_PRIORITY, &xLowerLeft, 0 );
+
+  delay(15000);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-//  detected = false;
-//  BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
-//  Serial.print("Devices found: ");
-//  Serial.println(foundDevices.getCount());
-//  Serial.println("Scan done!");
-//  pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
-//  delay(1000);
-  //  if (retracted && detected) {
-  //    extend();
-  //  } else if (!retracted && !detected) {
-  //    retract();
-  //  }
-  if (Serial.available() && Serial.read() == 'e') {
-    extend();
-  } else {
-    retract();
-  }
+  detected = false;
+  BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
+  Serial.print("Devices found: ");
+  Serial.println(foundDevices.getCount());
+  Serial.println("Scan done!");
+  pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
+  delay(1000);
+    if (retracted && detected) {
+      lowerMask();
+      retracted = false;
+    } else if (!retracted && !detected) {
+      raiseMask(); 
+      retracted = true;
+    }
+
 }
