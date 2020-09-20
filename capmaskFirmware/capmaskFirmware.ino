@@ -8,20 +8,26 @@
 #include <BLEScan.h>
 #include <BLEServer.h>
 #include <BLEAdvertisedDevice.h>
+#include <Stepper.h>
 
 #define SERVICE_UUID        "ca575296-1972-43c1-8475-e4bb29c7b3f5"
 
+
+boolean retracted = false;
 int scanTime = 1; //In seconds
 BLEScan* pBLEScan;
 boolean detected = false;
+
+Stepper rightStepper(600, 32, 33, 25, 26);
+Stepper leftStepper(600, 19, 18, 17, 16);
 
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     /**
         Called for each advertising BLE server.
     */
     void onResult(BLEAdvertisedDevice advertisedDevice) {
-      Serial.print("BLE Advertised Device found: ");
-      Serial.println(advertisedDevice.toString().c_str());
+      //      Serial.print("BLE Advertised Device found: ");
+      //      Serial.println(advertisedDevice.toString().c_str());
 
       // We have found a device, let us now see if it contains the service we are looking for.
       if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(BLEUUID(SERVICE_UUID))) {
@@ -37,6 +43,8 @@ void setup() {
   Serial.println("Scanning...");
   pinMode(4, OUTPUT);
   digitalWrite(4, LOW);
+  leftStepper.setSpeed(10);
+  rightStepper.setSpeed(10);
   BLEDevice::init("");
   pBLEScan = BLEDevice::getScan(); //create new scan
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
@@ -60,14 +68,36 @@ void setup() {
   Serial.println("Characteristic defined! Now you can read it in your phone!");
 }
 
+void extend() {
+  leftStepper.step(600);
+  rightStepper.step(-600);
+  Serial.println("Extending");
+  retracted = false;
+}
+void retract() {
+  leftStepper.step(-700);
+  rightStepper.step(700);
+  Serial.println("Retracting");
+  retracted = true;
+}
+
 void loop() {
   // put your main code here, to run repeatedly:
-  detected = false;
-  BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
-  Serial.print("Devices found: ");
-  Serial.println(foundDevices.getCount());
-  Serial.println("Scan done!");
-  pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
-  delay(1000);
-  digitalWrite(4, detected);
+//  detected = false;
+//  BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
+//  Serial.print("Devices found: ");
+//  Serial.println(foundDevices.getCount());
+//  Serial.println("Scan done!");
+//  pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
+//  delay(1000);
+  //  if (retracted && detected) {
+  //    extend();
+  //  } else if (!retracted && !detected) {
+  //    retract();
+  //  }
+  if (Serial.available() && Serial.read() == 'e') {
+    extend();
+  } else {
+    retract();
+  }
 }
