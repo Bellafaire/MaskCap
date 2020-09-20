@@ -1,8 +1,12 @@
-/*
-   Based on Neil Kolban example for IDF: https://github.com/nkolban/esp32-snippets/blob/master/cpp_utils/tests/BLE%20Tests/SampleScan.cpp
-   Ported to Arduino ESP32 by Evandro Copercini
-*/
-
+/*  Program controls two stepper motors that operate the mask mechanisim. 
+ *   Both continously advertises over BLE and Scans. if another maskcap is detected in bluetooth range 
+ *   both masks will auto-close. 
+ *   
+ *   Project by: 
+ *    Matthew Bellafaire
+ *    Kurtis Rhein
+ *    Steven DeCoste 
+ */
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEScan.h>
@@ -11,7 +15,6 @@
 #include <Stepper.h>
 
 #define SERVICE_UUID        "ca575296-1972-43c1-8475-e4bb29c7b3f5"
-
 
 boolean retracted = false;
 int scanTime = 1; //In seconds
@@ -23,10 +26,8 @@ boolean detected = false;
 const int stepsPerRevolution = 600;
 
 // Create Instance of Stepper library
-//Stepper myStepper(stepsPerRevolution, 5, 4, 3, 2);
-//Stepper rightStepper(stepsPerRevolution, 32, 33, 25, 26);
+//Code fix
 Stepper rightStepper(stepsPerRevolution, 32, 33, 25, 26);
-//Stepper leftStepper(stepsPerRevolution, 19, 18, 17, 16);
 Stepper leftStepper(stepsPerRevolution, 22, 23, 21, 19);
 
 
@@ -54,6 +55,9 @@ void setup() {
   digitalWrite(4, LOW);
   rightStepper.setSpeed(25);
   leftStepper.setSpeed(25);
+
+  //Create BLE advertisement and begin advertising. We're using the server here so that it can show up as 
+  //"CapMask" on a BLE Scanner (easier to debug than memorizing the UUID)
   BLEDevice::init("");
   pBLEScan = BLEDevice::getScan(); //create new scan
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
@@ -77,6 +81,7 @@ void setup() {
   Serial.println("Characteristic defined! Now you can read it in your phone!");
 }
 
+//To move the motors properly we use a FreeRTOS task
 void raiseLeft(void * pvParameters) {
   leftStepper.setSpeed(20);
   leftStepper.step(-1500);
@@ -100,6 +105,7 @@ void lowerRight(void * pvParameters) {
   vTaskDelete(NULL);
 }
 
+//raises mask
 void raiseMask() {
 
   TaskHandle_t xRaiseLeft = NULL;
@@ -110,6 +116,7 @@ void raiseMask() {
   delay(15000);
 }
 
+//closes mask
 void lowerMask() {
   TaskHandle_t xLowerLeft = NULL;
   TaskHandle_t xLowerRight = NULL;
@@ -119,8 +126,10 @@ void lowerMask() {
   delay(15000);
 }
 
+//not much happening here
 void loop() {
-  // put your main code here, to run repeatedly:
+
+  //set detected to false, the callback will set it to true if a device with the same UUID is found (another mask)
   detected = false;
   BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
   Serial.print("Devices found: ");
@@ -128,9 +137,13 @@ void loop() {
   Serial.println("Scan done!");
   pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
   delay(1000);
+
+  //if we detected another mask and the mask is open then we need to close the mask
     if (retracted && detected) {
       lowerMask();
       retracted = false;
+
+     //if it's closed and there's no other masks around then we can open the mask safely. 
     } else if (!retracted && !detected) {
       raiseMask(); 
       retracted = true;
